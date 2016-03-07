@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="lib/FileSaver.js"></script>
+    <script src="lib/tar.js"></script>
+    <script>
+        
+        var Tar = require('tar-js');
+        var Untar = require('untar');
+        
+
+        function uint8ToString(buf, start, end) {
+            var startPoint = start || 0;
+            var endPoint = (typeof(end) != "undefined") ? end : buf.length;
+            var out = '';
+            for (var i = startPoint; i < endPoint; i++) {
+                out += String.fromCharCode(buf[i]);
+            }
+
+            return out;
+        }
+
+        function stringToUint8 (input) {
+            var out = new Uint8Array(input.length);
+
+            for (var i = 0; i < input.length; i++) {
+                out[i] = input.charCodeAt(i);
+            }
+
+            return out;
+        }
+
+        function fileToBin(file, callback) {
+            var reader = new FileReader();
+
+            reader.onload = function(e) {
+                var array = stringToUint8(e.target.result);
+                callback(array);
+            };
+
+            reader.readAsBinaryString(file);
+        }
+
+        
+
+        function tar() {
+            var loadedCount = 0;
+            var out;
+            var tape = new Tar();
+            
+            function tarFile(file) {
+                function done() {
+                    loadedCount++;
+                    if (loadedCount == document.getElementById('file').files.length) {
+                        save(out);
+                    }
+                }
+
+                fileToBin(file, function(data) {
+                    out = tape.append(file.name, data);
+                    done();
+                });
+            }
+            
+            var files = document.getElementById('file').files;
+
+            for (var i = 0; i < files.length; i++) {
+                tarFile(files[i]);
+            }
+        }
+        
+        function isTar(arr) {
+            if (arr.length < 265) return false;
+            
+            var tarCheckStr = uint8ToString(arr, 257, 265);
+            
+            return tarCheckStr == "ustar  \0";
+        } 
+
+        function save(out) {
+            saveAs(new Blob([out]), "files.tar");
+        }
+
+        function untar() {
+            var file = document.getElementById('file').files[0];
+            
+            fileToBin(file, function(data) {
+                if (!isTar(data)) {
+                    alert("Not a TAR file");
+                } else {
+                    Untar(data, function(header, fb) {
+                        saveAs(new Blob([fb]), header.fileName);
+                    });
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+<input type="file" id="file" multiple>
+<input type="submit" onclick="tar()" value="Tar">
+<input type="submit" onclick="untar()" value="Untar">
+</body>
+</html>
